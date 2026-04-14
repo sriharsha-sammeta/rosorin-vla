@@ -335,7 +335,7 @@ def main():
     parser.add_argument('--port', type=int, default=8080, help='HTTP port')
     parser.add_argument('--camera-topic', default='/depth_cam/rgb0/image_raw',
                         help='ROS2 image topic for camera frames')
-    parser.add_argument('--watchdog-timeout', type=float, default=0.5,
+    parser.add_argument('--watchdog-timeout', type=float, default=2.0,
                         help='Seconds before watchdog stops motors')
     parser.add_argument('--max-linear', type=float, default=0.6,
                         help='Maximum linear velocity (m/s)')
