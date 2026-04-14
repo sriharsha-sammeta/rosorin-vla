@@ -5,6 +5,11 @@ ROSOrin Robot Server — lightweight HTTP API for remote control.
 Runs on the Jetson Orin. Exposes camera, motors, and health over HTTP.
 The recording client on the laptop connects to this server.
 
+Prerequisites (run in separate terminals):
+    1. sudo systemctl stop start_app_node.service
+    2. ros2 launch controller controller.launch.py
+    3. ros2 launch peripherals depth_camera.launch.py
+
 Endpoints:
     GET  /stream    — MJPEG live stream (for dashboard)
     GET  /snapshot  — Single JPEG frame with X-Timestamp header
@@ -36,17 +41,21 @@ from motor_controller import MotorController, mecanum_ik
 from health_monitor import HealthMonitor
 
 
-# --- Camera Capture Thread ---
+# --- Camera Capture via ROS2 Topic ---
 
 class CameraCapture:
-    """Background thread that captures camera frames."""
+    """Subscribes to a ROS2 image topic and caches JPEG frames.
 
-    def __init__(self, device: int = 0, width: int = 640, height: int = 480,
-                 fps: int = 30, jpeg_quality: int = 70):
-        self.device = device
-        self.width = width
-        self.height = height
-        self.fps = fps
+    The ROSOrin's depth camera has no /dev/video* device — it is only
+    accessible through the ROS2 depth_camera node which publishes on
+    /depth_cam/rgb0/image_raw.  Launch it first:
+        ros2 launch peripherals depth_camera.launch.py
+    """
+
+    def __init__(self, ros_node, topic: str = "/depth_cam/rgb0/image_raw",
+                 jpeg_quality: int = 70):
+        self._node = ros_node
+        self._topic = topic
         self.jpeg_quality = jpeg_quality
 
         self._frame: bytes | None = None
@@ -55,66 +64,78 @@ class CameraCapture:
         self._frame_index: int = 0
         self._lock = threading.Lock()
         self._running = False
-        self._thread: threading.Thread | None = None
-        self._cap: cv2.VideoCapture | None = None
+
+        try:
+            from cv_bridge import CvBridge
+            self._bridge = CvBridge()
+        except ImportError:
+            self._bridge = None
+            print("[Camera] WARNING: cv_bridge not found, using manual conversion")
 
     def start(self) -> bool:
-        """Start camera capture. Returns True if camera opened successfully."""
-        # Kill any process holding the camera
-        os.system(f"sudo fuser -k /dev/video{self.device} 2>/dev/null")
-        time.sleep(0.5)
+        """Subscribe to the ROS2 image topic. Returns True on success."""
+        from sensor_msgs.msg import Image as RosImage
 
-        self._cap = cv2.VideoCapture(self.device)
-        if not self._cap.isOpened():
-            print(f"[Camera] ERROR: Cannot open /dev/video{self.device}")
+        self._sub = self._node.create_subscription(
+            RosImage,
+            self._topic,
+            self._image_callback,
+            1,
+        )
+        self._running = True
+        print(f"[Camera] Subscribed to {self._topic}")
+        print(f"[Camera] Waiting for first frame...")
+
+        # Wait up to 10s for the first frame
+        deadline = time.monotonic() + 10.0
+        while self._timestamp == 0 and time.monotonic() < deadline:
+            time.sleep(0.1)
+
+        if self._timestamp == 0:
+            print(f"[Camera] ERROR: No frames received on {self._topic} after 10s")
+            print(f"[Camera] Make sure depth camera is launched:")
+            print(f"[Camera]   ros2 launch peripherals depth_camera.launch.py")
             return False
 
-        self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
-        self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
-        self._cap.set(cv2.CAP_PROP_FPS, self.fps)
-
-        actual_w = int(self._cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        actual_h = int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        print(f"[Camera] Opened /dev/video{self.device} at {actual_w}x{actual_h}")
-
-        self._running = True
-        self._thread = threading.Thread(target=self._capture_loop, daemon=True)
-        self._thread.start()
+        print(f"[Camera] Receiving frames on {self._topic}")
         return True
 
     def stop(self) -> None:
-        """Stop camera capture."""
+        """Stop receiving frames."""
         self._running = False
-        if self._thread:
-            self._thread.join(timeout=2.0)
-        if self._cap:
-            self._cap.release()
 
-    def _capture_loop(self) -> None:
-        """Continuously capture frames."""
-        while self._running:
-            ret, frame = self._cap.read()
-            if not ret:
-                time.sleep(0.01)
-                continue
+    def _image_callback(self, msg) -> None:
+        """ROS2 image topic callback."""
+        if not self._running:
+            return
 
-            # Encode to JPEG
-            ok, jpeg = cv2.imencode(
-                ".jpg",
-                frame,
-                [cv2.IMWRITE_JPEG_QUALITY, self.jpeg_quality],
-            )
-            if not ok:
-                time.sleep(0.01)
-                continue
+        try:
+            if self._bridge is not None:
+                frame = self._bridge.imgmsg_to_cv2(msg, "bgr8")
+            else:
+                import numpy as np
+                frame = np.frombuffer(msg.data, dtype=np.uint8).reshape(
+                    msg.height, msg.width, -1)
+                if msg.encoding == "rgb8":
+                    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        except Exception as e:
+            print(f"[Camera] Conversion error: {e}")
+            return
 
-            with self._lock:
-                self._frame = jpeg.tobytes()
-                self._raw_frame = frame
-                self._timestamp = time.monotonic()
-                self._frame_index += 1
+        # Encode to JPEG
+        ok, jpeg = cv2.imencode(
+            ".jpg",
+            frame,
+            [cv2.IMWRITE_JPEG_QUALITY, self.jpeg_quality],
+        )
+        if not ok:
+            return
 
-        print("[Camera] Capture loop ended")
+        with self._lock:
+            self._frame = jpeg.tobytes()
+            self._raw_frame = frame
+            self._timestamp = time.monotonic()
+            self._frame_index += 1
 
     def get_jpeg(self) -> tuple[bytes | None, float, int]:
         """Get latest JPEG frame, timestamp, and frame index."""
@@ -312,7 +333,8 @@ def create_app(mc: MotorController, camera: CameraCapture,
 def main():
     parser = argparse.ArgumentParser(description="ROSOrin Robot Server")
     parser.add_argument('--port', type=int, default=8080, help='HTTP port')
-    parser.add_argument('--camera', type=int, default=0, help='Camera device index')
+    parser.add_argument('--camera-topic', default='/depth_cam/rgb0/image_raw',
+                        help='ROS2 image topic for camera frames')
     parser.add_argument('--watchdog-timeout', type=float, default=0.5,
                         help='Seconds before watchdog stops motors')
     parser.add_argument('--max-linear', type=float, default=0.6,
@@ -333,15 +355,17 @@ def main():
     print("[Init] Motor controller...")
     mc = MotorController(max_linear=args.max_linear)
 
-    # Initialize camera
-    print("[Init] Camera...")
-    camera = CameraCapture(device=args.camera, jpeg_quality=args.jpeg_quality)
+    # Initialize camera (subscribes to ROS2 image topic)
+    print(f"[Init] Camera on {args.camera_topic}...")
+    camera = CameraCapture(
+        ros_node=mc,
+        topic=args.camera_topic,
+        jpeg_quality=args.jpeg_quality,
+    )
     if not camera.start():
-        print("[FATAL] Camera failed to open. Exiting.")
+        print("[FATAL] No camera frames. Make sure the depth camera node is running:")
+        print("  ros2 launch peripherals depth_camera.launch.py")
         sys.exit(1)
-
-    # Wait for first frame
-    time.sleep(0.5)
 
     # Initialize health monitor
     print("[Init] Health monitor...")
