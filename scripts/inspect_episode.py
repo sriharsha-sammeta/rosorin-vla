@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Inspect recorded TurboPi episodes for action/state correctness."""
+"""Inspect recorded ROSOrin episodes for action/state correctness."""
 
 from __future__ import annotations
 
@@ -17,8 +17,8 @@ AXES = ("vx", "vy", "omega")
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the CLI parser."""
-    parser = argparse.ArgumentParser(description="Inspect recorded TurboPi episodes")
-    parser.add_argument("--episodes-dir", default="data/turbopi_nav/episodes")
+    parser = argparse.ArgumentParser(description="Inspect recorded ROSOrin episodes")
+    parser.add_argument("--episodes-dir", default="data/rosorin_nav/episodes")
     parser.add_argument(
         "--session",
         default=None,

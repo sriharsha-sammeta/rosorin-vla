@@ -1,4 +1,4 @@
-"""Utilities for exporting TurboPi episodes into LeRobot dataset format."""
+"""Utilities for exporting ROSOrin episodes into LeRobot dataset format."""
 
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ def export_lerobot_dataset(
     overwrite: bool = False,
     push_to_hub: bool = False,
 ) -> ExportSummary:
-    """Convert accepted TurboPi episodes into a LeRobot dataset."""
+    """Convert accepted ROSOrin episodes into a LeRobot dataset."""
     episodes_dir = Path(episodes_dir)
     output_dir = Path(output_dir)
 
@@ -167,7 +167,7 @@ def discover_episode_dirs(episodes_dir: Path) -> list[Path]:
 
 
 def build_features(image_shape: tuple[int, int, int], image_key: str, include_state: bool) -> dict[str, dict]:
-    """Build a LeRobot feature dictionary for single-camera TurboPi data."""
+    """Build a LeRobot feature dictionary for single-camera ROSOrin data."""
     features: dict[str, dict] = {
         image_key: {
             "dtype": "video",

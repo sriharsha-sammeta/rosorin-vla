@@ -1,1 +1,1 @@
-"""Mini VLA: simple Vision-Language-Action model for TurboPi."""
+"""Mini VLA: simple Vision-Language-Action model for ROSOrin."""

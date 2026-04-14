@@ -1,0 +1,16 @@
+[Unit]
+Description=ROSOrin Robot Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/robot_server
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/bin/bash -lc 'source /home/ubuntu/ros2_ws/install/setup.bash && exec /usr/bin/python3 /home/ubuntu/robot_server/server.py --port 8080 >> /tmp/robot_server.log 2>&1'
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

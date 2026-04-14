@@ -1,4 +1,4 @@
-"""Drive TurboPi using a trained Mini VLA model with live task switching."""
+"""Drive ROSOrin using a trained Mini VLA model with live task switching."""
 
 from __future__ import annotations
 
@@ -20,8 +20,8 @@ from .model import load_checkpoint
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Drive TurboPi with Mini VLA")
-    p.add_argument("--robot-ip", default="192.168.149.1")
+    p = argparse.ArgumentParser(description="Drive ROSOrin with Mini VLA")
+    p.add_argument("--robot-ip", default="10.0.0.90")
     p.add_argument("--robot-port", type=int, default=8080)
     p.add_argument("--checkpoint", required=True)
     p.add_argument("--task", default=None,
@@ -154,7 +154,7 @@ def main() -> None:
 
     print()
     print("=" * 50)
-    print("  TurboPi Mini VLA Drive")
+    print("  ROSOrin Mini VLA Drive")
     print("=" * 50)
     print(f"  Robot:   {robot_url}")
     print(f"  Device:  {device}")

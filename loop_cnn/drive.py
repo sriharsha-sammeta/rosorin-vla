@@ -1,4 +1,4 @@
-"""Autonomous laptop-first driver for the TurboPi CNN policy."""
+"""Autonomous laptop-first driver for the ROSOrin CNN policy."""
 
 from __future__ import annotations
 
@@ -20,8 +20,8 @@ from .train import resolve_device
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Drive TurboPi using a trained CNN policy")
-    parser.add_argument("--robot-ip", default="192.168.149.1")
+    parser = argparse.ArgumentParser(description="Drive ROSOrin using a trained CNN policy")
+    parser.add_argument("--robot-ip", default="10.0.0.90")
     parser.add_argument("--robot-port", type=int, default=8080)
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--loop-hz", type=float, default=10.0)
@@ -71,7 +71,7 @@ def main() -> None:
 
     print()
     print("=" * 50)
-    print("  TurboPi CNN Drive")
+    print("  ROSOrin CNN Drive")
     print("=" * 50)
     print(f"  Robot: {robot_url}")
     print(f"  Device: {device}")

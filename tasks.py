@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 
 
-# Default tasks for the TurboPi navigation demo.
+# Default tasks for the ROSOrin navigation demo.
 # Edit this list to match your setup and objects.
 DEFAULT_TASKS = [
     "go to the left of the box",

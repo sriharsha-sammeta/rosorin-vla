@@ -1,4 +1,4 @@
-"""HTTP client for communicating with the TurboPi robot server."""
+"""HTTP client for communicating with the ROSOrin robot server."""
 import time
 import io
 
@@ -10,7 +10,7 @@ from PIL import Image
 class RobotClient:
     """Connects to the robot server over HTTP."""
 
-    def __init__(self, robot_url: str = "http://192.168.149.1:8080",
+    def __init__(self, robot_url: str = "http://10.0.0.90:8080",
                  timeout: float = 2.0, max_retries: int = 3):
         self.robot_url = robot_url.rstrip("/")
         self.timeout = timeout

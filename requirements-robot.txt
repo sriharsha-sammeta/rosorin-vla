@@ -1,4 +1,4 @@
-# Robot-side Python dependencies for the TurboPi server
-# `ros_robot_controller_sdk` and `cv2` are typically provided by the TurboPi image.
+# Robot-side Python dependencies for the ROSOrin server
+# `rclpy`, `geometry_msgs`, and `cv2` are provided by the ROSOrin ROS2 workspace.
 flask>=3.0
 netifaces>=0.11

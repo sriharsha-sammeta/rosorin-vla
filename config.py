@@ -21,13 +21,13 @@ class RobotServerConfig:
 class RecordingConfig:
     """Config for the laptop-side recording client."""
     # Robot connection
-    robot_ip: str = "192.168.149.1"
+    robot_ip: str = "10.0.0.90"
     robot_port: int = 8080
 
     # Dataset
-    dataset_name: str = "turbopi_nav"
+    dataset_name: str = "rosorin_nav"
     repo_id: str = "<HF_DATASET_REPO>"
-    robot_type: str = "turbopi"
+    robot_type: str = "rosorin"
 
     # Recording parameters
     fps: int = 10
@@ -74,10 +74,10 @@ class RecordingConfig:
 @dataclass
 class ExportConfig:
     """Config for converting episodes to LeRobot v3.0 format."""
-    episodes_dir: Path = field(default_factory=lambda: Path("data/turbopi_nav/episodes"))
-    output_dir: Path = field(default_factory=lambda: Path("data/turbopi_nav/lerobot"))
+    episodes_dir: Path = field(default_factory=lambda: Path("data/rosorin_nav/episodes"))
+    output_dir: Path = field(default_factory=lambda: Path("data/rosorin_nav/lerobot"))
     repo_id: str = "<HF_DATASET_REPO>"
-    robot_type: str = "turbopi"
+    robot_type: str = "rosorin"
     fps: int = 10
     image_key: str = "observation.images.front"
     state_source: str = "shifted_action"

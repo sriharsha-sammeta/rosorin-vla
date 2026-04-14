@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Interactive uploader for recorded TurboPi sessions on Hugging Face."""
+"""Interactive uploader for recorded ROSOrin sessions on Hugging Face."""
 
 from __future__ import annotations
 
@@ -30,8 +30,8 @@ except ImportError:  # pragma: no cover - platform dependent
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_EPISODES_ROOT = REPO_ROOT / "data" / "turbopi_cnn" / "episodes"
-LEGACY_EPISODES_ROOT = REPO_ROOT / "data" / "turbopi_cnn_loop" / "episodes"
+DEFAULT_EPISODES_ROOT = REPO_ROOT / "data" / "rosorin_cnn" / "episodes"
+LEGACY_EPISODES_ROOT = REPO_ROOT / "data" / "rosorin_cnn_loop" / "episodes"
 
 
 @dataclass(frozen=True)
@@ -78,7 +78,7 @@ def sanitize_repo_name(value: str) -> str:
     """Convert a folder-like name into a valid-ish Hugging Face repo name."""
     cleaned = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip())
     cleaned = re.sub(r"-{2,}", "-", cleaned).strip("-.")
-    return cleaned or "turbopi-session"
+    return cleaned or "rosorin-session"
 
 
 def count_parquet_rows(path: Path) -> int:
@@ -176,7 +176,7 @@ def repo_card_text(summary: SessionSummary, repo_id: str, include_raw: bool) -> 
 
         # {summary.session_name}
 
-        This dataset repo was uploaded from the TurboPi recording stack.
+        This dataset repo was uploaded from the ROSOrin recording stack.
 
         ## Summary
 
@@ -197,7 +197,7 @@ def repo_card_text(summary: SessionSummary, repo_id: str, include_raw: bool) -> 
 
         ## Notes
 
-        This repo contains one selected TurboPi session only. The repo name intentionally matches the session folder name.
+        This repo contains one selected ROSOrin session only. The repo name intentionally matches the session folder name.
         """
     ).strip() + "\n"
 
@@ -220,7 +220,7 @@ def build_manifest(summary: SessionSummary, repo_id: str, include_raw: bool) -> 
 
 def stage_upload_folder(summary: SessionSummary, *, repo_id: str, include_raw: bool) -> Path:
     """Create a temporary upload folder that contains only the selected session."""
-    tmp_dir = Path(tempfile.mkdtemp(prefix="turbopi_hf_upload_"))
+    tmp_dir = Path(tempfile.mkdtemp(prefix="rosorin_hf_upload_"))
     episodes_target = tmp_dir / "episodes"
     shutil.copytree(summary.session_dir, episodes_target)
 
@@ -285,7 +285,7 @@ def upload_selected_session(
             folder_path=staged_dir,
             repo_type="dataset",
             token=token,
-            commit_message=f"Upload TurboPi session {summary.session_name}",
+            commit_message=f"Upload ROSOrin session {summary.session_name}",
             commit_description=(
                 f"Dataset={summary.dataset_name}, episodes={summary.episode_count}, frames={summary.frame_count}"
             ),
@@ -413,7 +413,7 @@ class SessionUploaderApp:
         self.refresh_sessions()
 
     def _build(self) -> None:
-        self.root.title("TurboPi Hugging Face Session Uploader")
+        self.root.title("ROSOrin Hugging Face Session Uploader")
         self.root.geometry("980x620")
         self.root.minsize(900, 560)
 

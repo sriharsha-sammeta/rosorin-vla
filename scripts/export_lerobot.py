@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export accepted TurboPi episodes to a LeRobot-compatible dataset."""
+"""Export accepted ROSOrin episodes to a LeRobot-compatible dataset."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ def build_parser() -> argparse.ArgumentParser:
     """Build the CLI parser."""
     defaults = ExportConfig()
 
-    parser = argparse.ArgumentParser(description="Export TurboPi episodes to LeRobot format")
+    parser = argparse.ArgumentParser(description="Export ROSOrin episodes to LeRobot format")
     parser.add_argument("--episodes-dir", default=str(defaults.episodes_dir))
     parser.add_argument("--output-dir", default=str(defaults.output_dir))
     parser.add_argument("--repo-id", default=defaults.repo_id)
@@ -47,7 +47,7 @@ def derive_repo_id(episodes_dir: Path, output_dir: Path, requested_repo_id: str)
     if requested_repo_id != "<HF_DATASET_REPO>":
         return requested_repo_id
 
-    dataset_name = episodes_dir.parent.name or output_dir.parent.name or "turbopi"
+    dataset_name = episodes_dir.parent.name or output_dir.parent.name or "rosorin"
     return f"local/{dataset_name}_lerobot"
 
 

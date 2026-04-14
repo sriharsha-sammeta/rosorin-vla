@@ -9,7 +9,7 @@ def main() -> None:
     print(
         textwrap.dedent(
             """
-            TurboPi CNN policy package
+            ROSOrin CNN policy package
 
             Use one of:
               python -m cnn_policy.train --help

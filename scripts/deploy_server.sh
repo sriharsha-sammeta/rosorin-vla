@@ -1,18 +1,18 @@
 #!/bin/bash
 set -euo pipefail
 
-# Deploy the robot server to a TurboPi and optionally install lightweight deps.
+# Deploy the robot server to a ROSOrin and optionally install lightweight deps.
 #
 # Usage:
 #   bash scripts/deploy_server.sh [start|deploy|deps|stop|logs]
 #
 # Environment:
-#   ROBOT_IP    Robot IP address. Defaults to 192.168.149.1 for AP mode.
-#   ROBOT_USER  SSH username. Defaults to pi.
+#   ROBOT_IP    Robot IP address. Defaults to 10.0.0.90.
+#   ROBOT_USER  SSH username. Defaults to ubuntu.
 #   ROBOT_PORT  Server port. Defaults to 8080.
 
-ROBOT_IP="${ROBOT_IP:-192.168.149.1}"
-ROBOT_USER="${ROBOT_USER:-pi}"
+ROBOT_IP="${ROBOT_IP:-10.0.0.90}"
+ROBOT_USER="${ROBOT_USER:-ubuntu}"
 ROBOT_PORT="${ROBOT_PORT:-8080}"
 REMOTE_DIR="/home/${ROBOT_USER}/robot_server"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -43,7 +43,7 @@ case "${1:-start}" in
         echo "=== Installing robot Python dependencies ==="
         ssh "${ROBOT_USER}@${ROBOT_IP}" \
             "mkdir -p ${REMOTE_DIR} && cd ${REMOTE_DIR} && python3 -m pip install -r requirements-robot.txt"
-        echo "=== Done. Note: cv2 and ros_robot_controller_sdk should come from the TurboPi image. ==="
+        echo "=== Done. Note: rclpy and cv2 should come from the ROSOrin ROS2 workspace. ==="
         ;;
 
     start)

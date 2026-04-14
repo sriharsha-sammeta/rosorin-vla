@@ -10,7 +10,7 @@ PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "=== Step 1: Bundle code + data ==="
 cd "$PROJECT_DIR"
-tar czf /tmp/mini_vla_bundle.tar.gz mini_vla/ data/turbopi_nav/episodes/session_20260407_105651/
+tar czf /tmp/mini_vla_bundle.tar.gz mini_vla/ data/rosorin_nav/episodes/session_20260407_105651/
 
 echo "=== Step 2: Upload to RunPod ==="
 scp -i $SSH_KEY /tmp/mini_vla_bundle.tar.gz $POD_SSH:/workspace/
@@ -23,7 +23,7 @@ tar xzf mini_vla_bundle.tar.gz
 pip install av pandas pyarrow Pillow tqdm --quiet
 echo "=== Starting training ==="
 python -m mini_vla.train \
-  --session-dir data/turbopi_nav/episodes/session_20260407_105651 \
+  --session-dir data/rosorin_nav/episodes/session_20260407_105651 \
   --run-dir /workspace/runs/mini_vla \
   --epochs 50 \
   --batch-size 64 \
