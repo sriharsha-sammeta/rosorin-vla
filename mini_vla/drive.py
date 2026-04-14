@@ -29,8 +29,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--loop-hz", type=float, default=10.0)
     p.add_argument("--smoothing", type=float, default=0.5,
                    help="EMA factor for previous action (0=no smoothing)")
-    p.add_argument("--max-duty", type=float, default=80.0,
-                   help="Max duty used during data normalization")
+    p.add_argument("--max-speed", type=float, default=0.6,
+                   help="Max velocity (m/s) used during data normalization")
     p.add_argument("--device", default="auto")
     return p
 
@@ -209,7 +209,7 @@ def main() -> None:
             smoothed = smooth_alpha * previous_action + (1.0 - smooth_alpha) * pred_clipped
             previous_action = smoothed
 
-            command = smoothed * args.max_duty
+            command = smoothed * args.max_speed
 
             try:
                 client.send_velocity(

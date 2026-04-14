@@ -50,7 +50,7 @@ class RecordingSession:
         )
         self.teleop = TeleopController(
             speed=config.teleop_speed,
-            max_speed=config.max_duty,
+            max_speed=config.max_speed,
         )
         self.episodes = EpisodeManager()
         self.fps_reg = FPSRegulator(target_fps=config.fps)
@@ -153,7 +153,7 @@ class RecordingSession:
             "robot_type": self.config.robot_type,
             "fps": self.config.fps,
             "episode_time_s": self.config.episode_time_s,
-            "max_duty": self.config.max_duty,
+            "max_speed": self.config.max_speed,
             "teleop_speed": self.config.teleop_speed,
             "vcodec": self.config.vcodec,
             "tasks": self.tasks.tasks,
@@ -271,7 +271,7 @@ class RecordingSession:
                 continue
 
             vx, vy, omega = self.teleop.get_action()
-            action = np.array([vx, vy, omega], dtype=np.float32) / self.config.max_duty
+            action = np.array([vx, vy, omega], dtype=np.float32) / self.config.max_speed
             state = previous_action.copy()
 
             try:

@@ -26,9 +26,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--loop-hz", type=float, default=10.0)
     parser.add_argument("--smoothing", type=float, default=0.65, help="EMA factor for previous action")
-    parser.add_argument("--vx-cap", type=float, default=35.0)
-    parser.add_argument("--vy-cap", type=float, default=35.0)
-    parser.add_argument("--omega-cap", type=float, default=25.0)
+    parser.add_argument("--vx-cap", type=float, default=0.3)
+    parser.add_argument("--vy-cap", type=float, default=0.3)
+    parser.add_argument("--omega-cap", type=float, default=0.5)
     parser.add_argument("--device", default="auto")
     return parser
 

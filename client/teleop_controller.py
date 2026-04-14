@@ -15,8 +15,8 @@ except ImportError:
 class TeleopController:
     """Non-blocking keyboard teleop with held-key tracking."""
 
-    def __init__(self, speed: float = 50.0, max_speed: float = 100.0,
-                 min_speed: float = 10.0, speed_step: float = 10.0):
+    def __init__(self, speed: float = 0.15, max_speed: float = 0.6,
+                 min_speed: float = 0.05, speed_step: float = 0.05):
         self.speed = speed
         self.max_speed = max_speed
         self.min_speed = min_speed
@@ -113,10 +113,10 @@ class TeleopController:
         self.events["enter_pressed"] = False
 
     def get_action(self) -> tuple[float, float, float]:
-        """Get current velocity command as duty-cycle values.
+        """Get current velocity command in m/s.
 
         Returns:
-            (vx, vy, omega) in duty cycle units [-speed, speed]
+            (vx, vy, omega) in m/s [-speed, speed]
         """
         with self._lock:
             held = set(self._held)
@@ -143,15 +143,15 @@ class TeleopController:
 
         return vx, vy, omega
 
-    def get_normalized_action(self, duty_range: float = 80.0) -> np.ndarray:
+    def get_normalized_action(self, velocity_range: float = 0.6) -> np.ndarray:
         """Get current velocity normalized to [-1, 1].
 
         Args:
-            duty_range: The max duty cycle value to normalize against.
+            velocity_range: The max velocity (m/s) to normalize against.
 
         Returns:
             np.array([vx, vy, omega], dtype=float32) in [-1, 1]
         """
         vx, vy, omega = self.get_action()
-        return np.array([vx / duty_range, vy / duty_range, omega / duty_range],
+        return np.array([vx / velocity_range, vy / velocity_range, omega / velocity_range],
                         dtype=np.float32)

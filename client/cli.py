@@ -18,7 +18,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--fps", type=int, default=10)
     parser.add_argument("--episodes", type=int, default=50)
     parser.add_argument("--episode-time", type=float, default=30.0)
-    parser.add_argument("--speed", type=float, default=50.0)
+    parser.add_argument("--speed", type=float, default=0.15)
     parser.add_argument("--data-dir", default="data")
     parser.add_argument("--tasks", nargs="+", default=None,
                         help="Custom VLA task list (overrides defaults)")

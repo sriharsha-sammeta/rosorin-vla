@@ -13,7 +13,7 @@ class RobotServerConfig:
     camera_height: int = 480
     camera_fps: int = 30
     watchdog_timeout_s: float = 0.5
-    max_duty: float = 80.0
+    max_linear: float = 0.6  # m/s, ROSOrin max
     jpeg_quality: int = 70
 
 
@@ -34,9 +34,9 @@ class RecordingConfig:
     episode_time_s: float = 30.0
     num_episodes: int = 50
 
-    # Teleop
-    teleop_speed: float = 50.0
-    max_duty: float = 80.0
+    # Teleop (m/s for ROSOrin, max 0.6)
+    teleop_speed: float = 0.15
+    max_speed: float = 0.6
 
     # Paths
     data_dir: Path = field(default_factory=lambda: Path("data"))
@@ -47,8 +47,8 @@ class RecordingConfig:
     jpeg_quality: int = 70
 
     # Normalization range for state/action
-    # Duty cycle range is [-max_duty, max_duty], normalized to [-1, 1]
-    duty_range: float = 80.0
+    # Velocity range is [-max_speed, max_speed] m/s, normalized to [-1, 1]
+    velocity_range: float = 0.6
 
     @property
     def robot_url(self) -> str:
