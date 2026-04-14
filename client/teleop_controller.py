@@ -16,14 +16,11 @@ class TeleopController:
     """Non-blocking keyboard teleop with held-key tracking."""
 
     def __init__(self, speed: float = 0.15, max_speed: float = 0.6,
-                 min_speed: float = 0.05, speed_step: float = 0.05,
-                 strafe_scale: float = 1.5, omega_scale: float = 3.0):
+                 min_speed: float = 0.05, speed_step: float = 0.05):
         self.speed = speed
         self.max_speed = max_speed
         self.min_speed = min_speed
         self.speed_step = speed_step
-        self.strafe_scale = strafe_scale    # vy = speed * strafe_scale
-        self.omega_scale = omega_scale      # omega = speed * omega_scale
 
         # Currently held keys
         self._held: set[str] = set()
@@ -132,14 +129,14 @@ class TeleopController:
             vx = -self.speed
 
         if "a" in held:
-            vy = self.speed * self.strafe_scale
+            vy = self.speed
         elif "d" in held:
-            vy = -self.speed * self.strafe_scale
+            vy = -self.speed
 
         if "q" in held:
-            omega = self.speed * self.omega_scale
+            omega = self.speed
         elif "e" in held:
-            omega = -self.speed * self.omega_scale
+            omega = -self.speed
 
         if "space" in held:
             vx, vy, omega = 0.0, 0.0, 0.0
