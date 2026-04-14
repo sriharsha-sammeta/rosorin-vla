@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-TurboPi Robot Server — lightweight HTTP API for remote control.
+ROSOrin Robot Server — lightweight HTTP API for remote control.
 
-Runs on the Raspberry Pi 5. Exposes camera, motors, and health over HTTP.
+Runs on the Jetson Orin. Exposes camera, motors, and health over HTTP.
 The recording client on the laptop connects to this server.
 
 Endpoints:
@@ -183,7 +183,7 @@ def create_app(mc: MotorController, camera: CameraCapture,
     def index():
         h = health.get_health()
         return jsonify({
-            "name": "TurboPi Robot Server",
+            "name": "ROSOrin Robot Server (ROS2)",
             "camera": camera.is_alive,
             "health": h,
             "endpoints": ["/stream", "/snapshot", "/motor", "/velocity",
@@ -310,13 +310,13 @@ def create_app(mc: MotorController, camera: CameraCapture,
 # --- Main ---
 
 def main():
-    parser = argparse.ArgumentParser(description="TurboPi Robot Server")
+    parser = argparse.ArgumentParser(description="ROSOrin Robot Server")
     parser.add_argument('--port', type=int, default=8080, help='HTTP port')
     parser.add_argument('--camera', type=int, default=0, help='Camera device index')
     parser.add_argument('--watchdog-timeout', type=float, default=0.5,
                         help='Seconds before watchdog stops motors')
-    parser.add_argument('--max-duty', type=float, default=80.0,
-                        help='Maximum motor duty cycle')
+    parser.add_argument('--max-linear', type=float, default=0.6,
+                        help='Maximum linear velocity (m/s)')
     parser.add_argument('--jpeg-quality', type=int, default=70,
                         help='JPEG compression quality (0-100)')
     args = parser.parse_args()
@@ -326,12 +326,12 @@ def main():
     time.sleep(0.3)
 
     print("=" * 50)
-    print("  TurboPi Robot Server")
+    print("  ROSOrin Robot Server")
     print("=" * 50)
 
     # Initialize motor controller
     print("[Init] Motor controller...")
-    mc = MotorController(max_duty=args.max_duty)
+    mc = MotorController(max_linear=args.max_linear)
 
     # Initialize camera
     print("[Init] Camera...")
@@ -360,7 +360,7 @@ def main():
     def shutdown(*_):
         print("\n[Shutdown] Stopping motors...")
         mc.stop()
-        mc.set_rgb([[1, 0, 0, 0], [2, 0, 0, 0]])  # LEDs off
+        mc.destroy()
         print("[Shutdown] Stopping camera...")
         camera.stop()
         print("[Shutdown] Stopping watchdog...")
@@ -391,7 +391,7 @@ def main():
 
     print()
     print("┌──────────────────────────────────────────┐")
-    print("│  TurboPi Robot Server                    │")
+    print("│  ROSOrin Robot Server                    │")
     print("├──────────────────────────────────────────┤")
     for ip in ip_addrs:
         print(f"│  http://{ip}:{args.port:<5}                  │")

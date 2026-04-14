@@ -1,23 +1,13 @@
 #!/usr/bin/env python3
 """
-Health monitoring for TurboPi robot.
+Health monitoring for ROSOrin robot.
 
 Background thread that polls:
-- Battery voltage (via expansion board)
 - CPU temperature
 - Camera status
-
-Sets RGB LEDs to indicate state and triggers buzzer on low battery.
 """
 import threading
 import time
-
-
-# Battery thresholds (millivolts)
-BATTERY_OK = 7500
-BATTERY_WARN = 7200
-BATTERY_LOW = 7000
-BATTERY_CRITICAL = 6800
 
 
 class HealthMonitor:
@@ -26,7 +16,7 @@ class HealthMonitor:
     def __init__(self, motor_controller, poll_interval: float = 5.0):
         """
         Args:
-            motor_controller: MotorController instance (for battery, buzzer, LEDs)
+            motor_controller: MotorController instance
             poll_interval: Seconds between health checks
         """
         self.mc = motor_controller
@@ -35,11 +25,10 @@ class HealthMonitor:
         self.battery_mv: int = 0
         self.cpu_temp: float = 0.0
         self.camera_ok: bool = True
-        self.status: str = "unknown"  # "ok", "warn", "low", "critical"
+        self.status: str = "ok"
 
         self._running = False
         self._thread: threading.Thread | None = None
-        self._warned = False
 
     def start(self) -> None:
         """Start background monitoring."""
@@ -74,7 +63,7 @@ class HealthMonitor:
         """Background polling loop."""
         while self._running:
             try:
-                # Read battery
+                # Read battery (returns None on ROSOrin)
                 batt = self.mc.get_battery_mv()
                 if batt is not None and batt > 0:
                     self.battery_mv = batt
@@ -82,43 +71,13 @@ class HealthMonitor:
                 # Read CPU temp
                 self.cpu_temp = self._read_cpu_temp()
 
-                # Determine status and set LEDs
-                self._update_status()
-
+                self.status = "ok"
             except Exception as e:
                 print(f"[HealthMonitor] Error: {e}")
 
             time.sleep(self.poll_interval)
 
-    def _update_status(self) -> None:
-        """Update status and LEDs based on battery level."""
-        batt = self.battery_mv
-
-        if batt == 0:
-            self.status = "unknown"
-            self.mc.set_rgb([[1, 0, 0, 50], [2, 0, 0, 50]])  # dim blue = unknown
-            return
-
-        if batt >= BATTERY_OK:
-            self.status = "ok"
-            self.mc.set_rgb([[1, 0, 20, 0], [2, 0, 20, 0]])  # dim green
-            self._warned = False
-
-        elif batt >= BATTERY_WARN:
-            self.status = "warn"
-            self.mc.set_rgb([[1, 30, 20, 0], [2, 30, 20, 0]])  # dim yellow
-            self._warned = False
-
-        elif batt >= BATTERY_LOW:
-            self.status = "low"
-            self.mc.set_rgb([[1, 50, 10, 0], [2, 50, 10, 0]])  # orange
-            self._warned = True
-
-        else:  # CRITICAL
-            self.status = "critical"
-            self.mc.set_rgb([[1, 50, 0, 0], [2, 50, 0, 0]])  # red
-
     @property
     def can_record(self) -> bool:
-        """Whether battery is sufficient for recording."""
-        return self.status not in ("critical",)
+        """Whether system is healthy enough for recording."""
+        return True

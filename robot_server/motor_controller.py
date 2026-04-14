@@ -1,111 +1,150 @@
 #!/usr/bin/env python3
-"""Motor controller wrapper for the TurboPi Advanced kit."""
+"""Motor controller wrapper for the ROSOrin (Jetson Orin) kit.
 
-import os
-import sys
+Uses ROS2 to publish velocity commands on /controller/cmd_vel
+(geometry_msgs/Twist). The ROSOrin's built-in controller node handles
+mecanum inverse kinematics and PID motor control.
+"""
+
 import threading
 import time
 
-
-sys.path.insert(0, os.path.expanduser("~/board_demo"))
-import ros_robot_controller_sdk as rrc
-
-
-def mecanum_ik(vx: float, vy: float, omega: float) -> list[list]:
-    """Convert body velocities to wheel duties."""
-    v1 = vx - vy - omega
-    v2 = vx + vy + omega
-    v3 = vx + vy - omega
-    v4 = vx - vy + omega
-
-    return [[1, -v1], [2, v2], [3, -v3], [4, v4]]
+import rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import Twist
 
 
-class MotorController:
-    """Thread-safe motor controller with duty clamping and watchdog support."""
+# ROSOrin linear velocity limits (m/s) per the docs
+MAX_LINEAR = 0.6   # -0.6 to 0.6
+MAX_ANGULAR = 2.0  # reasonable mecanum yaw rate
 
-    def __init__(self, max_duty: float = 80.0):
-        self.board = rrc.Board()
-        self.board.enable_reception()
-        self.max_duty = max_duty
+
+def mecanum_ik(vx: float, vy: float, omega: float) -> dict:
+    """Return a velocity dict (kept for API compat with server.py).
+
+    On ROSOrin the actual IK is handled by the onboard controller node,
+    so we just pass through the body-frame velocities.
+    """
+    return {"vx": vx, "vy": vy, "omega": omega}
+
+
+class MotorController(Node):
+    """Thread-safe ROS2 motor controller that publishes Twist commands."""
+
+    def __init__(self, max_linear: float = MAX_LINEAR,
+                 max_angular: float = MAX_ANGULAR):
+        # Initialise rclpy once (safe to call multiple times)
+        if not rclpy.ok():
+            rclpy.init()
+
+        super().__init__('turbovla_motor_controller')
+
+        self.max_linear = max_linear
+        self.max_angular = max_angular
         self._lock = threading.Lock()
         self._last_command_time = time.monotonic()
 
+        # Publisher on the ROSOrin controller topic
+        self._pub = self.create_publisher(Twist, '/controller/cmd_vel', 1)
+
+        # Spin in a background thread so callbacks (if any) are processed
+        self._spin_thread = threading.Thread(target=self._spin, daemon=True)
+        self._spin_thread.start()
+
         time.sleep(0.2)
-        self.center_servos()
+        self.get_logger().info('MotorController ready (ROS2 /controller/cmd_vel)')
 
-    def _clamp(self, value: float) -> float:
-        """Clamp duty cycle to the configured safe range."""
-        return max(-self.max_duty, min(self.max_duty, value))
+    def _spin(self):
+        """Background rclpy spin."""
+        try:
+            rclpy.spin(self)
+        except Exception:
+            pass
 
-    def set_velocity(self, vx: float, vy: float, omega: float) -> list[list]:
-        """Send a body velocity command through mecanum inverse kinematics."""
-        wheels = mecanum_ik(vx, vy, omega)
-        for wheel in wheels:
-            wheel[1] = self._clamp(wheel[1])
+    # --- clamping helpers ---
+
+    def _clamp_linear(self, v: float) -> float:
+        return max(-self.max_linear, min(self.max_linear, v))
+
+    def _clamp_angular(self, v: float) -> float:
+        return max(-self.max_angular, min(self.max_angular, v))
+
+    # --- public API (same signatures the server already calls) ---
+
+    def set_velocity(self, vx: float, vy: float, omega: float) -> dict:
+        """Send a body-frame velocity command."""
+        vx = self._clamp_linear(vx)
+        vy = self._clamp_linear(vy)
+        omega = self._clamp_angular(omega)
+
+        msg = Twist()
+        msg.linear.x = float(vx)
+        msg.linear.y = float(vy)
+        msg.angular.z = float(omega)
 
         with self._lock:
-            self.board.set_motor_duty(wheels)
+            self._pub.publish(msg)
             self._last_command_time = time.monotonic()
 
-        return wheels
+        return {"vx": vx, "vy": vy, "omega": omega}
 
     def set_raw_wheels(self, wheels: list[list]) -> None:
-        """Send raw wheel duties directly."""
-        for wheel in wheels:
-            wheel[1] = self._clamp(wheel[1])
+        """Translate raw wheel duties to a velocity command.
 
-        with self._lock:
-            self.board.set_motor_duty(wheels)
-            self._last_command_time = time.monotonic()
+        The ROSOrin doesn't expose per-wheel duty control over ROS2,
+        so we approximate: average forward = vx, average strafe = vy.
+        For precise control, prefer set_velocity().
+        """
+        # Simple approximation from 4-wheel duties
+        if len(wheels) == 4:
+            d = {w[0]: w[1] for w in wheels}
+            # Reverse the mecanum IK (approximate)
+            vx = (d.get(1, 0) + d.get(2, 0) + d.get(3, 0) + d.get(4, 0)) / 4.0
+            vy = (-d.get(1, 0) + d.get(2, 0) + d.get(3, 0) - d.get(4, 0)) / 4.0
+            omega = (-d.get(1, 0) + d.get(2, 0) - d.get(3, 0) + d.get(4, 0)) / 4.0
+            # Scale from duty (0-100) to m/s (0-0.6)
+            scale = self.max_linear / 100.0
+            self.set_velocity(vx * scale, vy * scale, omega * scale)
+        else:
+            self.stop()
 
     def stop(self) -> None:
-        """Stop all motors immediately and refresh the watchdog timestamp."""
+        """Stop all motors immediately."""
+        msg = Twist()  # all zeros
         with self._lock:
-            self.board.set_motor_duty([[1, 0], [2, 0], [3, 0], [4, 0]])
+            self._pub.publish(msg)
             self._last_command_time = time.monotonic()
 
     def center_servos(self) -> None:
-        """Center the camera pan-tilt servos."""
-        with self._lock:
-            self.board.pwm_servo_set_position(0.5, [[1, 1500], [2, 1500]])
+        """No-op on ROSOrin (no pan-tilt servo via this interface)."""
+        pass
 
     def set_servos(self, positions: list[list]) -> None:
-        """Set servo positions."""
-        with self._lock:
-            self.board.pwm_servo_set_position(0.3, positions)
+        """No-op on ROSOrin."""
+        self.get_logger().warn('set_servos() not available on ROSOrin')
 
     def get_battery_mv(self) -> int | None:
-        """Read battery voltage in millivolts."""
-        try:
-            return self.board.get_battery()
-        except Exception:
-            return None
+        """Battery reading not available via this ROS2 interface."""
+        return None
 
     def get_imu(self) -> tuple | None:
-        """Read IMU data if available."""
-        try:
-            return self.board.get_imu()
-        except Exception:
-            return None
+        """IMU not read via this interface (use ROS2 /imu topic instead)."""
+        return None
 
-    def beep(
-        self,
-        freq: int = 1900,
-        on_time: float = 0.1,
-        off_time: float = 0.0,
-        repeat: int = 1,
-    ) -> None:
-        """Play a buzzer tone."""
-        with self._lock:
-            self.board.set_buzzer(freq, on_time, off_time, repeat)
+    def beep(self, freq: int = 1900, on_time: float = 0.1,
+             off_time: float = 0.0, repeat: int = 1) -> None:
+        """No-op on ROSOrin."""
+        pass
 
     def set_rgb(self, colors: list[list]) -> None:
-        """Set RGB LEDs."""
-        with self._lock:
-            self.board.set_rgb(colors)
+        """No-op on ROSOrin."""
+        pass
 
     @property
     def seconds_since_last_command(self) -> float:
-        """Return the time since the last motor command."""
         return time.monotonic() - self._last_command_time
+
+    def destroy(self) -> None:
+        """Clean shutdown."""
+        self.stop()
+        self.destroy_node()
