@@ -15,7 +15,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="ROSOrin teleop-only client")
     parser.add_argument("--robot-ip", default="10.0.0.90")
     parser.add_argument("--robot-port", type=int, default=8080)
-    parser.add_argument("--speed", type=float, default=0.15,
+    parser.add_argument("--speed", type=float, default=0.2,
                         help="Initial teleop speed in m/s")
     parser.add_argument("--max-speed", type=float, default=0.6,
                         help="Maximum teleop speed in m/s")

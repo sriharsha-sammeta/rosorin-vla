@@ -35,7 +35,7 @@ class RecordingConfig:
     num_episodes: int = 50
 
     # Teleop (m/s for ROSOrin, max 0.6)
-    teleop_speed: float = 0.15
+    teleop_speed: float = 0.2
     max_speed: float = 0.6
 
     # Paths

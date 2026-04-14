@@ -15,7 +15,7 @@ except ImportError:
 class TeleopController:
     """Non-blocking keyboard teleop with held-key tracking and velocity ramping."""
 
-    def __init__(self, speed: float = 0.15, max_speed: float = 0.6,
+    def __init__(self, speed: float = 0.2, max_speed: float = 0.6,
                  min_speed: float = 0.05, speed_step: float = 0.05,
                  ramp_rate: float = 0.6):
         self.speed = speed

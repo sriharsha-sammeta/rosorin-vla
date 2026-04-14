@@ -44,15 +44,16 @@ class MotorController(Node):
         self._lock = threading.Lock()
         self._last_command_time = time.monotonic()
 
-        # Publisher on the ROSOrin controller topic
-        self._pub = self.create_publisher(Twist, '/controller/cmd_vel', 1)
+        # Publish on /cmd_vel — same path as the iOS app, with built-in
+        # clamping (±0.2 m/s linear, ±0.5 rad/s angular) in the controller
+        self._pub = self.create_publisher(Twist, '/cmd_vel', 1)
 
         # Spin in a background thread so callbacks (if any) are processed
         self._spin_thread = threading.Thread(target=self._spin, daemon=True)
         self._spin_thread.start()
 
         time.sleep(0.2)
-        self.get_logger().info('MotorController ready (ROS2 /controller/cmd_vel)')
+        self.get_logger().info('MotorController ready (ROS2 /cmd_vel)')
 
     def _spin(self):
         """Background rclpy spin."""
