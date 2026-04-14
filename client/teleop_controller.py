@@ -1,6 +1,6 @@
 """Non-blocking keyboard teleop controller using pynput.
 
-Tracks held keys for smooth velocity control.
+Tracks held keys and ramps velocity smoothly to mimic analog joystick feel.
 Also handles episode management keys (arrows, escape).
 """
 import threading
@@ -13,14 +13,21 @@ except ImportError:
 
 
 class TeleopController:
-    """Non-blocking keyboard teleop with held-key tracking."""
+    """Non-blocking keyboard teleop with held-key tracking and velocity ramping."""
 
     def __init__(self, speed: float = 0.15, max_speed: float = 0.6,
-                 min_speed: float = 0.05, speed_step: float = 0.05):
+                 min_speed: float = 0.05, speed_step: float = 0.05,
+                 ramp_rate: float = 0.6):
         self.speed = speed
         self.max_speed = max_speed
         self.min_speed = min_speed
         self.speed_step = speed_step
+        self.ramp_rate = ramp_rate  # how fast to ramp (fraction of target per call)
+
+        # Current smoothed velocities
+        self._vx = 0.0
+        self._vy = 0.0
+        self._omega = 0.0
 
         # Currently held keys
         self._held: set[str] = set()
@@ -112,36 +119,57 @@ class TeleopController:
             time.sleep(0.05)
         self.events["enter_pressed"] = False
 
+    def _ramp(self, current: float, target: float) -> float:
+        """Smoothly ramp current value toward target."""
+        if abs(target) < 1e-6:
+            # Decelerate faster for snappy stop
+            return current * (1.0 - min(self.ramp_rate * 2, 1.0))
+        return current + (target - current) * self.ramp_rate
+
     def get_action(self) -> tuple[float, float, float]:
-        """Get current velocity command in m/s.
+        """Get current velocity command in m/s with smooth ramping.
 
         Returns:
-            (vx, vy, omega) in m/s [-speed, speed]
+            (vx, vy, omega) in m/s, smoothly ramped
         """
         with self._lock:
             held = set(self._held)
 
-        vx, vy, omega = 0.0, 0.0, 0.0
+        # Compute raw targets from keys
+        target_vx, target_vy, target_omega = 0.0, 0.0, 0.0
 
         if "w" in held:
-            vx = self.speed
+            target_vx = self.speed
         elif "s" in held:
-            vx = -self.speed
+            target_vx = -self.speed
 
         if "a" in held:
-            vy = self.speed
+            target_vy = self.speed
         elif "d" in held:
-            vy = -self.speed
+            target_vy = -self.speed
 
         if "q" in held:
-            omega = self.speed
+            target_omega = self.speed
         elif "e" in held:
-            omega = -self.speed
+            target_omega = -self.speed
 
         if "space" in held:
-            vx, vy, omega = 0.0, 0.0, 0.0
+            target_vx, target_vy, target_omega = 0.0, 0.0, 0.0
 
-        return vx, vy, omega
+        # Ramp toward targets
+        self._vx = self._ramp(self._vx, target_vx)
+        self._vy = self._ramp(self._vy, target_vy)
+        self._omega = self._ramp(self._omega, target_omega)
+
+        # Zero out tiny residuals
+        if abs(self._vx) < 0.005:
+            self._vx = 0.0
+        if abs(self._vy) < 0.005:
+            self._vy = 0.0
+        if abs(self._omega) < 0.005:
+            self._omega = 0.0
+
+        return self._vx, self._vy, self._omega
 
     def get_normalized_action(self, velocity_range: float = 0.6) -> np.ndarray:
         """Get current velocity normalized to [-1, 1].
