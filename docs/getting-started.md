@@ -64,12 +64,22 @@ bash scripts/deploy_server.sh deps
 
 ## Start the Robot Server
 
-Source the ROS2 workspace, then start the server:
+First stop the default app service and start the chassis controller:
+
+```bash
+sudo systemctl stop start_app_node.service
+source ~/ros2_ws/install/setup.bash
+ros2 launch controller controller.launch.py
+```
+
+Then in a **second terminal**, start our server:
 
 ```bash
 source ~/ros2_ws/install/setup.bash
 python3 robot_server/server.py --port 8080
 ```
+
+The controller node must be running — it bridges `/controller/cmd_vel` to the actual motors.
 
 If the repo only exists on your laptop, use the deploy helper from a Bash shell:
 

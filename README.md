@@ -66,12 +66,22 @@ bash scripts/deploy_server.sh deps
 
 ### 4. Start the robot server
 
-On the ROSOrin, source the ROS2 workspace first:
+On the ROSOrin, first stop the default app service and start the chassis controller:
+
+```bash
+sudo systemctl stop start_app_node.service
+source ~/ros2_ws/install/setup.bash
+ros2 launch controller controller.launch.py
+```
+
+Then in a **second terminal**, start our server:
 
 ```bash
 source ~/ros2_ws/install/setup.bash
 python3 robot_server/server.py --port 8080
 ```
+
+The controller node must be running — it subscribes to `/controller/cmd_vel` and drives the motors. Our server publishes velocity commands to that topic.
 
 If the repo only exists on your laptop, use the helper script from Git Bash, WSL, or another Bash shell:
 
@@ -209,9 +219,15 @@ python scripts/inspect_episode.py --episodes-dir data/rosorin_nav/episodes
 python scripts/export_lerobot.py --episodes-dir data/rosorin_nav/episodes --output-dir data/rosorin_nav/lerobot --repo-id <HF_DATASET_REPO>
 ```
 
-Robot (source ROS2 workspace first):
+Robot (two terminals needed):
 
 ```bash
+# Terminal 1: stop default app and start chassis controller
+sudo systemctl stop start_app_node.service
+source ~/ros2_ws/install/setup.bash
+ros2 launch controller controller.launch.py
+
+# Terminal 2: start our server
 source ~/ros2_ws/install/setup.bash
 python3 robot_server/server.py --port 8080
 ```
