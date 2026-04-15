@@ -37,9 +37,11 @@ def _flush_stdin() -> None:
 class RecordingSession:
     """Orchestrates the full recording session."""
 
-    def __init__(self, config: RecordingConfig, tasks: TaskManager | None = None):
+    def __init__(self, config: RecordingConfig, tasks: TaskManager | None = None,
+                 observe_mode: bool = False):
         self.config = config
         self.tasks = tasks or TaskManager()
+        self.observe_mode = observe_mode
 
         self.config.dataset_dir.mkdir(parents=True, exist_ok=True)
 
@@ -103,12 +105,20 @@ class RecordingSession:
         self.episode_writer.save_task_mapping(self.tasks.tasks)
         self._running = True
 
-        print("\n  Controls:")
-        print("    WASD+QE  = drive robot")
-        print("    +/-      = speed up/down")
-        print("    right    = accept episode / start recording")
-        print("    left     = discard episode")
-        print("    ESC      = stop session")
+        if self.observe_mode:
+            print("\n  OBSERVE MODE: Drive with iPhone app or joystick.")
+            print("  This client records camera + velocity without sending commands.")
+            print("\n  Controls:")
+            print("    right    = accept episode / start recording")
+            print("    left     = discard episode")
+            print("    ESC      = stop session")
+        else:
+            print("\n  Controls:")
+            print("    WASD+QE  = drive robot")
+            print("    +/-      = speed up/down")
+            print("    right    = accept episode / start recording")
+            print("    left     = discard episode")
+            print("    ESC      = stop session")
 
         try:
             episode_num = 0
@@ -194,42 +204,50 @@ class RecordingSession:
 
     def _drive_until_ready(self) -> None:
         """Let the user drive until right arrow is pressed to start recording."""
-        print("  Driving mode - press right arrow when ready to record...\n")
+        if self.observe_mode:
+            print("  Drive with app/joystick - press right arrow when ready to record...\n")
+        else:
+            print("  Driving mode - press right arrow when ready to record...\n")
         self.teleop.clear_events()
 
         while not self.teleop.events["accept_episode"] and not self.teleop.events["stop_session"]:
-            vx, vy, omega = self.teleop.get_action()
-            try:
-                sent = self.client.send_velocity(vx, vy, omega)
-                error = ""
-            except Exception as exc:
-                sent = False
-                error = str(exc)
+            if self.observe_mode:
+                # Read velocity from robot (someone else is driving)
+                try:
+                    vel = self.client.get_velocity()
+                    vx = vel.get("vx", 0)
+                    vy = vel.get("vy", 0)
+                    omega = vel.get("omega", 0)
+                except Exception:
+                    vx, vy, omega = 0, 0, 0
+            else:
+                vx, vy, omega = self.teleop.get_action()
+                try:
+                    self.client.send_velocity(vx, vy, omega)
+                except Exception:
+                    pass
 
-            if vx > 0:
+            if vx > 0.01:
                 status = "FWD"
-            elif vx < 0:
+            elif vx < -0.01:
                 status = "BWD"
-            elif vy > 0:
+            elif vy > 0.01:
                 status = "LEFT"
-            elif vy < 0:
+            elif vy < -0.01:
                 status = "RIGHT"
-            elif omega > 0:
+            elif omega > 0.01:
                 status = "ROT_L"
-            elif omega < 0:
+            elif omega < -0.01:
                 status = "ROT_R"
             else:
                 status = "STOP"
 
-            line = f"\r  [{status:<6}] speed={self.teleop.speed:.0f}%"
-            if not sent:
-                line += "  WARN: command not delivered"
-                if error:
-                    line += f": {error}"
-            print(f"{line}  ", end="", flush=True)
+            src = "observe" if self.observe_mode else f"speed={self.teleop.speed:.2f}"
+            print(f"\r  [{status:<6}] {src}  ", end="", flush=True)
             time.sleep(0.1)
 
-        self.client.stop()
+        if not self.observe_mode:
+            self.client.stop()
         self.teleop.clear_events()
         print("\r" + " " * 60 + "\r", end="")
 
@@ -270,19 +288,29 @@ class RecordingSession:
                 print(f"\r  [WARN] Frame grab failed: {exc}   ", end="", flush=True)
                 continue
 
-            vx, vy, omega = self.teleop.get_action()
+            if self.observe_mode:
+                # Read velocity from robot (driven by app/joystick)
+                try:
+                    vel = self.client.get_velocity()
+                    vx = vel.get("vx", 0.0)
+                    vy = vel.get("vy", 0.0)
+                    omega = vel.get("omega", 0.0)
+                except Exception as exc:
+                    print(f"\r  [WARN] Velocity read failed: {exc}   ", end="", flush=True)
+                    continue
+            else:
+                vx, vy, omega = self.teleop.get_action()
+                try:
+                    sent = self.client.send_velocity(vx, vy, omega)
+                except Exception as exc:
+                    print(f"\r  [WARN] Motor command failed: {exc}   ", end="", flush=True)
+                    continue
+                if not sent:
+                    print("\r  [WARN] Robot rejected the velocity command.   ", end="", flush=True)
+                    continue
+
             action = np.array([vx, vy, omega], dtype=np.float32) / self.config.max_speed
             state = previous_action.copy()
-
-            try:
-                sent = self.client.send_velocity(vx, vy, omega)
-            except Exception as exc:
-                print(f"\r  [WARN] Motor command failed: {exc}   ", end="", flush=True)
-                continue
-
-            if not sent:
-                print("\r  [WARN] Robot rejected the velocity command.   ", end="", flush=True)
-                continue
 
             episode_ts = frame_count / self.config.fps
             self.episodes.add_frame(image_rgb, state, action, episode_ts)

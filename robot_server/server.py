@@ -208,7 +208,8 @@ def create_app(mc: MotorController, camera: CameraCapture,
             "camera": camera.is_alive,
             "health": h,
             "endpoints": ["/stream", "/snapshot", "/motor", "/velocity",
-                          "/stop", "/health", "/servo", "/buzzer"],
+                          "/stop", "/health", "/current_velocity",
+                          "/servo", "/buzzer"],
         })
 
     @app.route('/stream')
@@ -284,6 +285,12 @@ def create_app(mc: MotorController, camera: CameraCapture,
             return '', 204
         mc.stop()
         return jsonify({"ok": True})
+
+    @app.route('/current_velocity')
+    def current_velocity():
+        """Observed velocity from /controller/cmd_vel (any source: teleop, app, joystick)."""
+        vel = mc.get_observed_velocity()
+        return jsonify(vel)
 
     @app.route('/health')
     def health_endpoint():

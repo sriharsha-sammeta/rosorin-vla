@@ -97,6 +97,18 @@ class RobotClient:
                              json={"vx": vx, "vy": vy, "omega": omega})
         return resp.status_code == 200
 
+    def get_velocity(self) -> dict:
+        """Get the current observed velocity from the robot.
+
+        Returns the velocity being executed on /controller/cmd_vel,
+        regardless of who sent it (our teleop, iOS app, joystick).
+
+        Returns:
+            {"vx": float, "vy": float, "omega": float, "timestamp": float}
+        """
+        resp = self._request("GET", "/current_velocity")
+        return resp.json()
+
     def stop(self) -> bool:
         """Emergency stop all motors."""
         try:

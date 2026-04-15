@@ -23,6 +23,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--tasks", nargs="+", default=None,
                         help="Custom VLA task list (overrides defaults)")
     parser.add_argument("--mode", choices=["launcher", "cnn", "vla"], default="launcher")
+    parser.add_argument("--observe", action="store_true",
+                        help="Observe mode: record from app/joystick driving, don't send commands")
     parser.add_argument("--cnn-intent", choices=["language", "no-language"], default=None)
     parser.add_argument("--cnn-task", default=None,
                         help="Internal CNN task selector; public mode uses dataset-recording")

@@ -26,6 +26,7 @@ def run_from_args(args: Namespace) -> None:
     )
 
     tasks = TaskManager(args.tasks if args.tasks else DEFAULT_TASKS)
-    session = RecordingSession(config, tasks)
+    observe = getattr(args, 'observe', False)
+    session = RecordingSession(config, tasks, observe_mode=observe)
     session.run()
 

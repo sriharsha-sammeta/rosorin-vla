@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Motor controller wrapper for the ROSOrin (Jetson Orin) kit.
 
-Uses ROS2 to publish velocity commands on /controller/cmd_vel
-(geometry_msgs/Twist). The ROSOrin's built-in controller node handles
-mecanum inverse kinematics and PID motor control.
+Publishes velocity commands on /cmd_vel and subscribes to
+/controller/cmd_vel to observe the actual velocity being executed
+(regardless of who sent it — our teleop, iOS app, or joystick).
 """
 
 import threading
@@ -29,7 +29,7 @@ def mecanum_ik(vx: float, vy: float, omega: float) -> dict:
 
 
 class MotorController(Node):
-    """Thread-safe ROS2 motor controller that publishes Twist commands."""
+    """Thread-safe ROS2 motor controller with velocity observation."""
 
     def __init__(self, max_linear: float = MAX_LINEAR,
                  max_angular: float = MAX_ANGULAR):
@@ -48,12 +48,27 @@ class MotorController(Node):
         # clamping (±0.2 m/s linear, ±0.5 rad/s angular) in the controller
         self._pub = self.create_publisher(Twist, '/cmd_vel', 1)
 
-        # Spin in a background thread so callbacks (if any) are processed
+        # Subscribe to /controller/cmd_vel to observe the actual velocity
+        # being executed, regardless of who sent it (teleop, iOS app, joystick)
+        self._observed_vx = 0.0
+        self._observed_vy = 0.0
+        self._observed_omega = 0.0
+        self._observed_time = 0.0
+        self._obs_lock = threading.Lock()
+
+        self.create_subscription(
+            Twist,
+            '/controller/cmd_vel',
+            self._velocity_observer_callback,
+            1,
+        )
+
+        # Spin in a background thread so callbacks are processed
         self._spin_thread = threading.Thread(target=self._spin, daemon=True)
         self._spin_thread.start()
 
         time.sleep(0.2)
-        self.get_logger().info('MotorController ready (ROS2 /cmd_vel)')
+        self.get_logger().info('MotorController ready (pub=/cmd_vel, obs=/controller/cmd_vel)')
 
     def _spin(self):
         """Background rclpy spin."""
@@ -61,6 +76,29 @@ class MotorController(Node):
             rclpy.spin(self)
         except Exception:
             pass
+
+    def _velocity_observer_callback(self, msg: Twist) -> None:
+        """Record the latest velocity command seen on /controller/cmd_vel."""
+        with self._obs_lock:
+            self._observed_vx = msg.linear.x
+            self._observed_vy = msg.linear.y
+            self._observed_omega = msg.angular.z
+            self._observed_time = time.monotonic()
+            self._last_command_time = self._observed_time
+
+    def get_observed_velocity(self) -> dict:
+        """Return the latest velocity observed on /controller/cmd_vel.
+
+        This captures commands from ANY source: our teleop, iOS app,
+        joystick, or any other ROS2 publisher.
+        """
+        with self._obs_lock:
+            return {
+                "vx": self._observed_vx,
+                "vy": self._observed_vy,
+                "omega": self._observed_omega,
+                "timestamp": self._observed_time,
+            }
 
     # --- clamping helpers ---
 
