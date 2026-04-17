@@ -17,12 +17,14 @@ class TeleopController:
 
     def __init__(self, speed: float = 0.2, max_speed: float = 0.6,
                  min_speed: float = 0.05, speed_step: float = 0.05,
-                 ramp_rate: float = 0.6):
+                 ramp_rate: float = 0.6, omega_scale: float = 5.0):
         self.speed = speed
         self.max_speed = max_speed
         self.min_speed = min_speed
         self.speed_step = speed_step
         self.ramp_rate = ramp_rate  # how fast to ramp (fraction of target per call)
+        # speed is in m/s; omega in rad/s. Motor clamps angular at ±2.0 rad/s.
+        self.omega_scale = omega_scale
 
         # Current smoothed velocities
         self._vx = 0.0
@@ -149,9 +151,9 @@ class TeleopController:
             target_vy = -self.speed
 
         if "q" in held:
-            target_omega = self.speed
+            target_omega = self.speed * self.omega_scale
         elif "e" in held:
-            target_omega = -self.speed
+            target_omega = -self.speed * self.omega_scale
 
         if "space" in held:
             target_vx, target_vy, target_omega = 0.0, 0.0, 0.0
