@@ -10,7 +10,11 @@ it travels with a tape measure. Compare to the expected value printed below.
 from __future__ import annotations
 
 import argparse
+import sys
 import time
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from client.robot_client import RobotClient
 
