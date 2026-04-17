@@ -44,9 +44,12 @@ class MotorController(Node):
         self._lock = threading.Lock()
         self._last_command_time = time.monotonic()
 
-        # Publish on /cmd_vel — same path as the iOS app, with built-in
-        # clamping (±0.2 m/s linear, ±0.5 rad/s angular) in the controller
-        self._pub = self.create_publisher(Twist, '/cmd_vel', 1)
+        # Publish on /controller/cmd_vel — same path the joystick uses.
+        # Goes directly to cmd_vel_callback in odom_publisher_node with no
+        # clamping/ramping, so replay and inference behave identically to
+        # a human driving with the joystick. Safety clamping still happens
+        # inside set_velocity() below (±max_linear / ±max_angular).
+        self._pub = self.create_publisher(Twist, '/controller/cmd_vel', 1)
 
         # Subscribe to /controller/cmd_vel to observe the actual velocity
         # being executed, regardless of who sent it (teleop, iOS app, joystick)
@@ -68,7 +71,7 @@ class MotorController(Node):
         self._spin_thread.start()
 
         time.sleep(0.2)
-        self.get_logger().info('MotorController ready (pub=/cmd_vel, obs=/controller/cmd_vel)')
+        self.get_logger().info('MotorController ready (pub=/controller/cmd_vel, obs=/controller/cmd_vel)')
 
     def _spin(self):
         """Background rclpy spin."""
